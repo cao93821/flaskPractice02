@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="widewrapper main">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6 col-md-offset-3 clean-superblock" id="contact">
+                    <form action="/release" enctype="multipart/form-data" method="post" class="contact_form">
+                        {{ form.hidden_tag() }}
+                        <h2>Release</h2>
+                        <p>{{ form.title(class="form-control input-lg", placeholder="Title") }}</p>
+                        {% for error in form.errors.title %}
+                        <p style="color:red;">{{ error }}</p>
+                        {% endfor %}
+                        <p>{{ form.body(class="form-control input-lg", placeholder="Body", rows=10) }}</p>
+                        {% for error in form.errors.body %}
+                        <p style="color:red;">{{ error }}</p>
+                        {% endfor %}
+                        <p>{{ form.photo(class="form-control input-lg") }}</p>
+                        {% for error in form.errors.photo %}
+                        <p style="color:red;">{{ error }}</p>
+                        {% endfor %}
+                        <p>{{ form.submit(class="btn btn-xlarge btn-clean-one") }}</p>
+                        {% if file_url %}
+                        <br><img src="{{ file_url }}">
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
