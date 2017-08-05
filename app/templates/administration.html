@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <div style="padding:50px;position:relative">
-    <a href="{{ url_for('release') }}" style="position:relative;left:950px;bottom:20px"><input type="button" value="release new blog" class="btn btn-xlarge btn-clean-one"></a>
+    <a href="{{ url_for('main.release') }}" style="position:relative;left:950px;bottom:20px"><input type="button" value="release new blog" class="btn btn-xlarge btn-clean-one"></a>
     {% for blog in blogs %}
-    <form style="position:relative;overflow:hidden;height:140px;padding:20px" action="{{ url_for('delete', blog_id=blog.id) }}" method="POST">
+    <form style="position:relative;overflow:hidden;height:140px;padding:20px" action="{{ url_for('main.delete', blog_id=blog.id) }}" method="POST">
         <img src="{{ blog.img }}" style="position:absolute;width:100px;height:100px" />
         <p style="position:absolute;left:180px">标题：{{ blog.title }}</p>
         <p style="position:absolute;left:500px;width:500px">内容：{{ blog.body }}</p>
         <div style="position:relative;left:980px"><input type="submit" value="delete" class="btn btn-xlarge btn-clean-one"></div>
-        <div style="position:relative;left:980px;top:20px"><input type="submit" value="{% if blog.is_recommend %}derecommend{% else %}recommend{% endif %}" class="btn btn-xlarge btn-clean-one" formaction="{% if blog.is_recommend %}{{ url_for('derecommend', blog_id=blog.id) }}{% else %}{{ url_for('recommend', blog_id=blog.id) }}{% endif %}"></div>
+        <div style="position:relative;left:980px;top:20px"><input type="submit" value="{% if blog.is_recommend %}derecommend{% else %}recommend{% endif %}" class="btn btn-xlarge btn-clean-one" formaction="{% if blog.is_recommend %}{{ url_for('main.derecommend', blog_id=blog.id) }}{% else %}{{ url_for('main.recommend', blog_id=blog.id) }}{% endif %}"></div>
     </form>
     {% endfor %}
 </div>

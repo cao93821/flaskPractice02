@@ -1,9 +1,12 @@
-from app import app, db, login_manager, photos
-from flask import render_template, request, redirect, flash, url_for, send_from_directory
-from app.models import Blog, User, Comment
-from app.forms import LoginForm, ReleaseForm, CommentForm
+from . import db, login_manager, photos
+from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint
+from .models import Blog, User, Comment
+from .forms import LoginForm, ReleaseForm, CommentForm
 from flask_login import login_required, login_user, logout_user, current_user
 from datetime import date
+from config import Config
+
+main = Blueprint('main', __name__)
 
 
 def date_transform(raw_date):
@@ -27,8 +30,8 @@ def load_user(user_id):
     return db.session.query(User).filter_by(id=user_id).first()
 
 
-@app.route('/index')
-@app.route('/')
+@main.route('/index')
+@main.route('/')
 def index():
     results = Blog.query.order_by(Blog.id.desc())
     blogs = [dict(id=result.id,
@@ -43,7 +46,7 @@ def index():
     return render_template('index.html', blogs=blogs, recommended_blogs=recommended_blogs)
 
 
-@app.route('/single/<blog_id>')
+@main.route('/single/<blog_id>')
 def single(blog_id):
     comment_form = CommentForm()
     result = db.session.query(Blog).filter_by(id=blog_id).first()
@@ -67,7 +70,7 @@ def single(blog_id):
                            comments=comments)
 
 
-@app.route('/single/<blog_id>/comment', methods=['POST'])
+@main.route('/single/<blog_id>/comment', methods=['POST'])
 def comment(blog_id):
     comment_form = CommentForm()
     if comment_form.validate_on_submit():
@@ -77,10 +80,10 @@ def comment(blog_id):
                           comment_blog_id=blog_id)
         db.session.add(comment)
         db.session.commit()
-    return redirect(url_for('single', blog_id=blog_id))
+    return redirect(url_for('main.single', blog_id=blog_id))
 
 
-@app.route('/login', methods=['GET', 'POST'])
+@main.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
@@ -93,14 +96,14 @@ def login():
     return render_template('login.html', form=form)
 
 
-@app.route('/logout')
+@main.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('index'))
+    return redirect(url_for('main.index'))
 
 
-@app.route('/administration', methods=['GET', 'POST'])
+@main.route('/administration', methods=['GET', 'POST'])
 def administration():
     if current_user.is_authenticated:
         results = Blog.query.order_by(Blog.id.desc())
@@ -111,35 +114,35 @@ def administration():
                       is_recommend=result.is_recommend) for result in results]
 
         return render_template('administration.html', blogs=blogs)
-    return redirect(url_for('login'))
+    return redirect(url_for('main.login'))
 
 
-@app.route('/administration/delete/<blog_id>', methods=['POST'])
+@main.route('/administration/delete/<blog_id>', methods=['POST'])
 @login_required
 def delete(blog_id):
     blog = Blog.query.filter(Blog.id == blog_id).first()
     db.session.delete(blog)
     db.session.commit()
-    return redirect(url_for('administration'))
+    return redirect(url_for('main.administration'))
 
 
-@app.route('/administration/recommend/<blog_id>', methods=['POST'])
+@main.route('/administration/recommend/<blog_id>', methods=['POST'])
 @login_required
 def recommend(blog_id):
     Blog.query.filter(Blog.id == blog_id).update({Blog.is_recommend: 1})
     db.session.commit()
-    return redirect(url_for('administration'))
+    return redirect(url_for('main.administration'))
 
 
-@app.route('/administration/derecommend/<blog_id>', methods=['POST'])
+@main.route('/administration/derecommend/<blog_id>', methods=['POST'])
 @login_required
 def derecommend(blog_id):
     Blog.query.filter(Blog.id == blog_id).update({Blog.is_recommend: 0})
     db.session.commit()
-    return redirect(url_for('administration'))
+    return redirect(url_for('main.administration'))
 
 
-@app.route('/release', methods=['GET', 'POST'])
+@main.route('/release', methods=['GET', 'POST'])
 @login_required
 def release():
     form = ReleaseForm()
@@ -150,16 +153,16 @@ def release():
         db.session.add(blog)
         db.session.commit()
         flash("release succeed")
-        return redirect(url_for('administration'))
+        return redirect(url_for('main.administration'))
     return render_template('release.html', form=form)
 
 
-@app.route('/about')
+@main.route('/about')
 def about():
     return render_template('about.html')
 
 
-@app.route('/_uploads/photos/<filename>')
+@main.route('/_uploads/photos/<filename>')
 def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOADED_PHOTOS_DEST'], filename)
+    return send_from_directory(Config.UPLOADED_PHOTOS_DEST, filename)
 

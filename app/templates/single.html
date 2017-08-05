@@ -93,7 +93,7 @@
 
                         <h2><i class="fa fa-pencil"></i> Add Comment</h2>
 
-                        <form action="{{ url_for('comment', blog_id=blog.id) }}" method="post" accept-charset="utf-8">
+                        <form action="{{ url_for('main.comment', blog_id=blog.id) }}" method="post" accept-charset="utf-8">
                             {{ comment_form.hidden_tag() }}
                             {{ comment_form.comment(rows="10", placeholder="Your Message", class="form-control input-lg") }}
                             <div class="buttons clearfix">

@@ -27,7 +27,7 @@
     <header>
         <div class="widewrapper masthead">
             <div class="container">
-                <a href="{{ url_for('index') }}" id="logo">
+                <a href="{{ url_for('main.index') }}" id="logo">
                     <img src="{{ url_for('static', filename='img/logopig.jpg') }}" style="height:72px;width:100px" alt="clean Blog">
                 </a>
 
@@ -42,21 +42,21 @@
                         <ul class="nav nav-pills navbar-nav">
 
                             <li>
-                                <a href="{{ url_for('index') }}">Home</a>
+                                <a href="{{ url_for('main.index') }}">Home</a>
                             </li>
                             <li>
-                                <a href="{{ url_for('about') }}">About</a>
+                                <a href="{{ url_for('main.about') }}">About</a>
                             </li>
                             <li>
-                                <a href="{{ url_for('administration') }}">Administration</a>
+                                <a href="{{ url_for('main.administration') }}">Administration</a>
                             </li>
                             {% if current_user.is_authenticated %}
                             <li>
-                                <a href="{{ url_for('logout') }}">Logout</a>
+                                <a href="{{ url_for('main.logout') }}">Logout</a>
                             </li>
                             {% else %}
                             <li>
-                                <a href="{{ url_for('login') }}">Login</a>
+                                <a href="{{ url_for('main.login') }}">Login</a>
                             </li>
                             {% endif %}
                         </ul>
