@@ -34,7 +34,7 @@ class User(db.Model, UserMixin):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(40))
-    password = db.Column(db.String(40))
+    password = db.Column(db.Text)
     comment = db.relationship('Comment', backref='author')
 
     def __repr__(self):

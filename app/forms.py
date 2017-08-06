@@ -11,6 +11,12 @@ class LoginForm(Form):
     submit = SubmitField('Log in')
 
 
+class SignupFrom(Form):
+    user_name = StringField('user name', validators=[DataRequired()])
+    password = PasswordField('password', validators=[DataRequired()])
+    submit = SubmitField('Sign up')
+
+
 class ReleaseForm(Form):
     title = StringField('title', validators=[DataRequired()])
     body = TextAreaField('body', validators=[DataRequired()])
