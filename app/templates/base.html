@@ -52,14 +52,14 @@
                             </li>
                             {% if current_user.is_authenticated %}
                             <li>
-                                <a href="{{ url_for('main.logout') }}">Logout</a>
+                                <a href="{{ url_for('auth.logout') }}">Logout</a>
                             </li>
                             {% else %}
                             <li>
-                                <a href="{{ url_for('main.login') }}">Login</a>
+                                <a href="{{ url_for('auth.login') }}">Login</a>
                             </li>
                             <li>
-                                <a href="{{ url_for('main.signup') }}">Signup</a>
+                                <a href="{{ url_for('auth.signup') }}">Signup</a>
                             </li>
                             {% endif %}
                         </ul>

@@ -33,7 +33,7 @@ def create_app(config_name):
     configure_uploads(app, photos)
     patch_request_class(app)
 
-    from .views import main as main_blueprint
-    app.register_blueprint(main_blueprint)
-
+    from .views import main, auth
+    app.register_blueprint(main)
+    app.register_blueprint(auth, url_prefix='/auth')
     return app

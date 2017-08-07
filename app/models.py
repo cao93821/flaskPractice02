@@ -1,5 +1,6 @@
 from app import db
 from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 class Blog(db.Model):
@@ -34,8 +35,20 @@ class User(db.Model, UserMixin):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     user_name = db.Column(db.String(40))
-    password = db.Column(db.Text)
+    hash_password = db.Column(db.Text)
+    role = db.Column(db.String(40))
     comment = db.relationship('Comment', backref='author')
+
+    @property
+    def password(self):
+        raise AttributeError('Password is not readable')
+
+    @password.setter
+    def password(self, password):
+        self.hash_password = generate_password_hash(password)
+
+    def verify_password(self, password):
+        return check_password_hash(self.hash_password, password)
 
     def __repr__(self):
         return "<User> %r" % self.user_name

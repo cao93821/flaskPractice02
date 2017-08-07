@@ -5,9 +5,9 @@ from .forms import LoginForm, ReleaseForm, CommentForm, SignupFrom
 from flask_login import login_required, login_user, logout_user, current_user
 from datetime import date
 from config import Config
-from werkzeug.security import generate_password_hash, check_password_hash
 
 main = Blueprint('main', __name__)
+auth = Blueprint('auth', __name__)
 
 
 def date_transform(raw_date):
@@ -84,37 +84,37 @@ def comment(blog_id):
     return redirect(url_for('main.single', blog_id=blog_id))
 
 
-@main.route('/signup', methods=['GET', 'POST'])
+@auth.route('/signup', methods=['GET', 'POST'])
 def signup():
     form = SignupFrom()
     if form.validate_on_submit():
         if db.session.query(User).filter_by(user_name=form.user_name.data).first():
             flash("The user's name already exist", category='error')
-            return redirect(url_for('main.signup'))
+            return redirect(url_for('auth.signup'))
         else:
-            user = User(user_name=form.user_name.data, password=generate_password_hash(form.password.data))
+            user = User(user_name=form.user_name.data, password=form.password.data)
             db.session.add(user)
             db.session.commit()
             login_user(user)
             flash('Hello {}'.format(form.user_name.data))
             return redirect(url_for('main.index'))
-    return render_template('signup.html', form=form)
+    return render_template('auth/signup.html', form=form)
 
 
-@main.route('/login', methods=['GET', 'POST'])
+@auth.route('/login', methods=['GET', 'POST'])
 def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = db.session.query(User).filter_by(user_name=form.user_name.data).first()
-        if user and check_password_hash(user.password, form.password.data):
+        if user and user.verify_password(form.password.data):
             login_user(user)
             flash('Hello {}'.format(form.user_name.data))
             return redirect('/index')
 
-    return render_template('login.html', form=form)
+    return render_template('auth/login.html', form=form)
 
 
-@main.route('/logout')
+@auth.route('/logout')
 @login_required
 def logout():
     logout_user()
@@ -132,7 +132,7 @@ def administration():
                       is_recommend=result.is_recommend) for result in results]
 
         return render_template('administration.html', blogs=blogs)
-    return redirect(url_for('main.login'))
+    return redirect(url_for('auth.login'))
 
 
 @main.route('/administration/delete/<blog_id>', methods=['POST'])
