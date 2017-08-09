@@ -7,8 +7,22 @@
                     <form action="{{ url_for('auth.signup') }}" method="post" accept-charset="utf-8" class="contact-form">
                         {{ form.hidden_tag() }}
                         <h2>Signup</h2>
+                        <p>{{ form.email(class="form-control input-lg", placeholder="Email") }}</p>
+                         {% for error in form.errors.user_name %}
+                        <p style="color:red;">{{ error }}</p>
+                        {% endfor %}
                         <p>{{ form.user_name(class="form-control input-lg", placeholder="User Name") }}</p>
+                         {% for error in form.errors.user_name %}
+                        <p style="color:red;">{{ error }}</p>
+                        {% endfor %}
                         <p>{{ form.password(class="form-control input-lg", placeholder="Password") }}</p>
+                        {% for error in form.errors.password %}
+                        <p style="color:red;">{{ error }}</p>
+                        {% endfor %}
+                        <p>{{ form.password2(class="form-control input-lg", placeholder="Password") }}</p>
+                        {% for error in form.errors.password2 %}
+                        <p style="color:red;">{{ error }}</p>
+                        {% endfor %}
                         <p>{{ form.submit(class="btn btn-xlarge btn-clean-one") }}</p>
                     </form>
                 </div>

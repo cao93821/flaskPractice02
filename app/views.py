@@ -1,10 +1,11 @@
-from . import db, login_manager, photos
-from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint
+from . import db, login_manager, photos, mail
+from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, current_app
 from .models import Blog, User, Comment
 from .forms import LoginForm, ReleaseForm, CommentForm, SignupFrom
 from flask_login import login_required, login_user, logout_user, current_user
 from datetime import date
 from config import Config
+from flask_mail import Message
 
 main = Blueprint('main', __name__)
 auth = Blueprint('auth', __name__)
@@ -24,6 +25,14 @@ def date_transform(raw_date):
                        11: 'November',
                        12: 'December'}
     return '{} {} {}'.format(raw_date.day, month_transform[raw_date.month], raw_date.year)
+
+
+def send_email(to, subject, template, **kwargs):
+    msg = Message(subject,
+                  sender=current_app.config['FLASK_MAIL_SENDER'],
+                  recipients=[to])
+    msg.body = render_template(template + '.txt', **kwargs)
+    mail.send(msg)
 
 
 @login_manager.user_loader
@@ -92,13 +101,27 @@ def signup():
             flash("The user's name already exist", category='error')
             return redirect(url_for('auth.signup'))
         else:
-            user = User(user_name=form.user_name.data, password=form.password.data)
+            user = User(email=form.email.data, user_name=form.user_name.data, password=form.password.data)
             db.session.add(user)
             db.session.commit()
-            login_user(user)
-            flash('Hello {}'.format(form.user_name.data))
+            token = user.generate_confirmation_token()
+            send_email(user.email, 'Confirm Your Account', 'auth/confirm', user=user, token=token)
+            flash('A confirmation email has been sent to you by email')
             return redirect(url_for('main.index'))
     return render_template('auth/signup.html', form=form)
+
+
+@auth.route('/confirm/<token>')
+@login_required
+def confirm(token):
+    if current_user.confirmed:
+        return redirect(url_for('main.index'))
+    elif current_user.confirm(token):
+        flash('You have confirmed your account')
+        return redirect(url_for('main.index'))
+    else:
+        flash('The confirm link is invalid')
+    return redirect(url_for('main.index'))
 
 
 @auth.route('/login', methods=['GET', 'POST'])
@@ -122,6 +145,7 @@ def logout():
 
 
 @main.route('/administration', methods=['GET', 'POST'])
+@login_required
 def administration():
     if current_user.is_authenticated:
         results = Blog.query.order_by(Blog.id.desc())

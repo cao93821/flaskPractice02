@@ -1,6 +1,8 @@
 from app import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import TimedJSONWebSignatureSerializer
+from flask import current_app
 
 
 class Blog(db.Model):
@@ -34,10 +36,12 @@ class Comment(db.Model):
 class User(db.Model, UserMixin):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(40))
     user_name = db.Column(db.String(40))
     hash_password = db.Column(db.Text)
     role = db.Column(db.String(40))
     comment = db.relationship('Comment', backref='author')
+    confirmed = db.Column(db.Boolean, default=False)
 
     @property
     def password(self):
@@ -49,6 +53,22 @@ class User(db.Model, UserMixin):
 
     def verify_password(self, password):
         return check_password_hash(self.hash_password, password)
+
+    def generate_confirmation_token(self, expiration=3600):
+        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'], expiration)
+        return signature.dumps({'confirm.txt': self.id})
+
+    def confirm(self, token):
+        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
+        try:
+            data = signature.loads(token)
+        except:
+            return False
+        if data.get('confirm.txt') != self.id:
+            return False
+        self.confirmed = True
+        db.session.commit()
+        return True
 
     def __repr__(self):
         return "<User> %r" % self.user_name
