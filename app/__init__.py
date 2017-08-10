@@ -38,6 +38,6 @@ def create_app(config_name):
     patch_request_class(app)
 
     from .views import main, auth
-    app.register_blueprint(main)
-    app.register_blueprint(auth, url_prefix='/auth')
+    app.register_blueprint(main.main)
+    app.register_blueprint(auth.auth, url_prefix='/auth')
     return app

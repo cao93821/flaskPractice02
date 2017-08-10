@@ -47,9 +47,11 @@
                             <li>
                                 <a href="{{ url_for('main.about') }}">About</a>
                             </li>
+                            {% if current_user.role == '1' %}
                             <li>
                                 <a href="{{ url_for('main.administration') }}">Administration</a>
                             </li>
+                            {% endif %}
                             {% if current_user.is_authenticated %}
                             <li>
                                 <a href="{{ url_for('auth.logout') }}">Logout</a>

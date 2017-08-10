@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div style="padding:50px;position:relative">
+    <p style="position:absolute;left:80px;top:30px">访问次数：{{ pv }}</p>
     <a href="{{ url_for('main.release') }}" style="position:relative;left:950px;bottom:20px"><input type="button" value="release new blog" class="btn btn-xlarge btn-clean-one"></a>
     {% for blog in blogs %}
     <form style="position:relative;overflow:hidden;height:140px;padding:20px" action="{{ url_for('main.delete', blog_id=blog.id) }}" method="POST">

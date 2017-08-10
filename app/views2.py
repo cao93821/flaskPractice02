@@ -1,30 +1,23 @@
 from . import db, login_manager, photos, mail
-from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, current_app
-from .models import Blog, User, Comment
+from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, current_app, request, Flask
+from .models import Blog, User, Comment, Ip
 from .forms import LoginForm, ReleaseForm, CommentForm, SignupFrom
 from flask_login import login_required, login_user, logout_user, current_user
 from datetime import date
 from config import Config
 from flask_mail import Message
+from sqlalchemy.sql.expression import distinct
 
 main = Blueprint('main', __name__)
 auth = Blueprint('auth', __name__)
 
 
-def date_transform(raw_date):
-    month_transform = {1: 'January',
-                       2: 'February',
-                       3: 'March',
-                       4: 'April',
-                       5: 'May',
-                       6: 'June',
-                       7: 'July',
-                       8: 'August',
-                       9: 'September',
-                       10: 'October',
-                       11: 'November',
-                       12: 'December'}
-    return '{} {} {}'.format(raw_date.day, month_transform[raw_date.month], raw_date.year)
+@main.after_request
+def pv_statistics(response):
+    ip = Ip(ip=request.remote_addr)
+    db.session.add(ip)
+    db.session.commit()
+    return response
 
 
 def send_email(to, subject, template, **kwargs):
@@ -48,7 +41,7 @@ def index():
                   title=result.title,
                   body=result.body,
                   img=result.img,
-                  gmt_create=date_transform(result.gmt_create)
+                  gmt_create=result.format_date
                   ) for result in results]
     recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
     recommended_blogs = [dict(id=result.id,
@@ -64,11 +57,11 @@ def single(blog_id):
                 title=result.title,
                 body=result.body,
                 img=result.img,
-                gmt_create=date_transform(result.gmt_create))
+                gmt_create=result.format_date)
     comment_results = db.session.query(Comment).filter(Comment.comment_blog_id == blog_id, Comment.reply_id == None).all()
     comments = [dict(id=result.id,
                      user_name=db.session.query(User).filter_by(id=result.user_id).first().user_name,
-                     gmt_create=date_transform(result.gmt_create),
+                     gmt_create=result.format_date,
                      comment_content=result.comment_content) for result in comment_results]
     recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
     recommended_blogs = [dict(id=result.id,
@@ -154,8 +147,8 @@ def administration():
                       body=result.body,
                       img=result.img,
                       is_recommend=result.is_recommend) for result in results]
-
-        return render_template('administration.html', blogs=blogs)
+        pv = db.session.query(Ip.ip).count()
+        return render_template('administration.html', blogs=blogs, pv=pv)
     return redirect(url_for('auth.login'))
 
 

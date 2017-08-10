@@ -5,6 +5,22 @@ from itsdangerous import TimedJSONWebSignatureSerializer
 from flask import current_app
 
 
+def date_transform(raw_date):
+    month_transform = {1: 'January',
+                       2: 'February',
+                       3: 'March',
+                       4: 'April',
+                       5: 'May',
+                       6: 'June',
+                       7: 'July',
+                       8: 'August',
+                       9: 'September',
+                       10: 'October',
+                       11: 'November',
+                       12: 'December'}
+    return '{} {} {}'.format(raw_date.day, month_transform[raw_date.month], raw_date.year)
+
+
 class Blog(db.Model):
     __tablename__ = 'blog'
     id = db.Column(db.Integer, primary_key=True)
@@ -15,6 +31,10 @@ class Blog(db.Model):
     is_recommend = db.Column(db.Integer)
     author_id = db.Column(db.Integer)
     comment = db.relationship('Comment', backref='comment_blog')
+
+    @property
+    def format_date(self):
+        return date_transform(self.gmt_create)
 
     def __repr__(self):
         return "<Blog> %r" % self.title
@@ -28,6 +48,10 @@ class Comment(db.Model):
     reply_id = db.Column(db.Integer)
     comment_content = db.Column(db.Text)
     comment_blog_id = db.Column(db.Integer, db.ForeignKey('blog.id'))
+
+    @property
+    def format_date(self):
+        return date_transform(self.gmt_create)
 
     def __repr__(self):
         return "<Comment> {}".format(self.id)
@@ -73,6 +97,9 @@ class User(db.Model, UserMixin):
     def __repr__(self):
         return "<User> %r" % self.user_name
 
-# db.create_all()
 
+class Ip(db.Model):
+    __tablename__ = 'ip'
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(20))
 
