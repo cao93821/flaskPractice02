@@ -82,6 +82,18 @@ class User(db.Model, UserMixin):
         signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'], expiration)
         return signature.dumps({'confirm.txt': self.id})
 
+    @staticmethod
+    def password_reset_token_confirm(token, password):
+        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
+        try:
+            data = signature.loads(token)
+        except:
+            return False
+        user = db.session.query(User).filter_by(id=data.get('confirm.txt'))
+        user.password = password
+        db.session.commit()
+        return True
+
     def confirm(self, token):
         signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
         try:

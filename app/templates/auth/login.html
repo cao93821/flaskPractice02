@@ -11,6 +11,7 @@
                         <p>{{ form.password(class="form-control input-lg", placeholder="Password") }}</p>
                         <p>{{ form.submit(class="btn btn-xlarge btn-clean-one") }}</p>
                     </form>
+                    <a href="{{ url_for('auth.forget_password') }}"><button>forget password</button></a>
                 </div>
             </div>
         </div>

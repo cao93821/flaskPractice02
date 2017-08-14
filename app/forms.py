@@ -16,7 +16,7 @@ class SignupFrom(Form):
     user_name = StringField('user name', validators=[DataRequired()])
     password = PasswordField('password', validators=[
         DataRequired(), equal_to('password2', message='passwords must match')])
-    password2 = PasswordField('confirm.txt password', validators=[DataRequired()])
+    password2 = PasswordField('password', validators=[DataRequired()])
     submit = SubmitField('Sign up')
 
 
@@ -33,3 +33,16 @@ class ReleaseForm(Form):
 class CommentForm(Form):
     comment = TextAreaField('comment', validators=[DataRequired()])
     submit = SubmitField('Submit')
+
+
+class ForgetPasswordForm(Form):
+    email = StringField('email', validators=[DataRequired()])
+    submit = SubmitField('send email')
+
+
+class PasswordResetForm(Form):
+    new_password = PasswordField('new_password', validators=[
+        DataRequired(), equal_to('new_password2', message='passwords must match')
+    ])
+    new_password2 = PasswordField('new_password2', validators=[DataRequired()])
+    submit = SubmitField('reset password')
