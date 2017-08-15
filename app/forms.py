@@ -46,3 +46,8 @@ class PasswordResetForm(Form):
     ])
     new_password2 = PasswordField('new_password2', validators=[DataRequired()])
     submit = SubmitField('reset password')
+
+
+class SetNewEmailForm(Form):
+    new_email = StringField('email', validators=[DataRequired()])
+    submit = SubmitField('reset email')

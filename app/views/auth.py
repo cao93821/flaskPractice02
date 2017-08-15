@@ -1,7 +1,7 @@
 from .. import db
 from flask import render_template, redirect, flash, url_for, Blueprint
 from ..models import User
-from ..forms import LoginForm, SignupFrom, ForgetPasswordForm, PasswordResetForm
+from ..forms import LoginForm, SignupFrom, ForgetPasswordForm, PasswordResetForm, SetNewEmailForm
 from flask_login import login_required, login_user, logout_user, current_user
 from ..mail import send_email
 
@@ -81,5 +81,52 @@ def password_reset(token):
     if form.validate_on_submit():
         if User.password_reset_token_confirm(token, form.new_password.data):
             flash('password reset success')
-            return redirect(url_for('auth.login'))
+            if current_user.is_authenticated:
+                return redirect(url_for('main.index'))
+            else:
+                return redirect(url_for('auth.login'))
+
     return render_template('auth/password-reset.html', form=form, token=token)
+
+
+@auth.route('/password-change', methods=['GET'])
+@login_required
+def change_password():
+    token = current_user.generate_confirmation_token()
+    send_email(current_user.email, 'change password', 'auth/password-reset', user=current_user, token=token)
+    flash('email has been send')
+    return redirect(url_for('main.administration'))
+
+
+@auth.route('/email-change', methods=['GET'])
+@login_required
+def change_email():
+    token = current_user.generate_confirmation_token()
+    send_email(current_user.email, 'change email', 'auth/email-change', user=current_user, token=token)
+    flash('email has been send')
+    return redirect(url_for('main.administration'))
+
+
+@auth.route('/set-new-email/<token>', methods=['GET', 'POST'])
+@login_required
+def set_new_email(token):
+    form = SetNewEmailForm()
+    if form.validate_on_submit():
+        if current_user.email_reset_token_confirm(token):
+            confirm_token = current_user.generate_confirmation_token(3600, form.new_email.data)
+            send_email(form.new_email.data,
+                       'confirm email',
+                       'auth/email-confirm',
+                       user=current_user,
+                       token=confirm_token)
+            flash('email has been send')
+            return redirect(url_for('main.administration'))
+    return render_template('auth/set-new-email.html', form=form, token=token)
+
+
+@auth.route('/email-confirm/<token>')
+@login_required
+def email_confirm(token):
+    if current_user.new_email_token_confirm(token):
+        flash('email has been reset')
+        return redirect(url_for('main.administration'))
