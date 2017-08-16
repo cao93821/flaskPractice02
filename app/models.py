@@ -84,9 +84,12 @@ class User(db.Model, UserMixin):
     def verify_password(self, password):
         return check_password_hash(self.hash_password, password)
 
-    def generate_confirmation_token(self, expiration=3600):
+    def generate_confirmation_token(self, expiration=3600, *email):
         signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'], expiration)
-        return signature.dumps({'confirm.txt': self.id})
+        if email:
+            return signature.dumps({'confirm.txt': self.id, 'new_email': email[0]})
+        else:
+            return signature.dumps({'confirm.txt': self.id})
 
     @staticmethod
     def password_reset_token_confirm(token, password):
@@ -97,6 +100,29 @@ class User(db.Model, UserMixin):
             return False
         user = db.session.query(User).filter_by(id=data.get('confirm.txt'))
         user.password = password
+        db.session.commit()
+        return True
+
+    def email_reset_token_confirm(self, token):
+        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
+        try:
+            data = signature.loads(token)
+        except:
+            return False
+        if data.get('confirm.txt') != self.id:
+            return False
+        return True
+
+    def new_email_token_confirm(self, token):
+        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
+        try:
+            data = signature.loads(token)
+        except:
+            return False
+        if data.get('confirm.txt') != self.id:
+            return False
+        new_email = data.get('new_email')
+        self.email = new_email
         db.session.commit()
         return True
 

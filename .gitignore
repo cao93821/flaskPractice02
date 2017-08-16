@@ -4,5 +4,5 @@
 venv
 env
 __pycache__
-migrations
-app/static/img
+migrations/
+app/static/img/
