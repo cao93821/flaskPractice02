@@ -5,6 +5,21 @@ from flask_uploads import UploadSet, configure_uploads, IMAGES, patch_request_cl
 from config import config
 from flask_mail import Mail
 
+# app = Flask(__name__)
+# app.config.from_object(config['default'])
+# db = SQLAlchemy(app)
+#
+# migrate = Migrate(app, db)
+#
+# login_manager = LoginManager()
+# login_manager.init_app(app)
+#
+# photos = UploadSet('photos', IMAGES)
+# configure_uploads(app, photos)
+# patch_request_class(app)
+#
+# from app import views, models
+
 
 db = SQLAlchemy()
 mail = Mail()
@@ -22,6 +37,10 @@ def create_app(config_name):
     mail.init_app(app)
     configure_uploads(app, photos)
     patch_request_class(app)
+
+    # app.app_context().push()
+    # from .models import Role
+    # Role.insert_role()
 
     from .views import main, auth
     app.register_blueprint(main.main)

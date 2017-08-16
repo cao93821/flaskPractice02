@@ -63,9 +63,15 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(40))
     user_name = db.Column(db.String(40))
     hash_password = db.Column(db.Text)
-    role = db.Column(db.String(40))
+    role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
     comment = db.relationship('Comment', backref='author')
     confirmed = db.Column(db.Boolean, default=False)
+
+    def can(self, permissions):
+        return self.role is not None and (self.role.permissions & permissions) == permissions
+
+    def is_administer(self):
+        return self.can(Permission.ADMINISTER)
 
     @property
     def password(self):
@@ -78,12 +84,9 @@ class User(db.Model, UserMixin):
     def verify_password(self, password):
         return check_password_hash(self.hash_password, password)
 
-    def generate_confirmation_token(self, expiration=3600, *email):
+    def generate_confirmation_token(self, expiration=3600):
         signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'], expiration)
-        if email:
-            return signature.dumps({'confirm.txt': self.id, 'new_email': email[0]})
-        else:
-            return signature.dumps({'confirm.txt': self.id})
+        return signature.dumps({'confirm.txt': self.id})
 
     @staticmethod
     def password_reset_token_confirm(token, password):
@@ -94,29 +97,6 @@ class User(db.Model, UserMixin):
             return False
         user = db.session.query(User).filter_by(id=data.get('confirm.txt'))
         user.password = password
-        db.session.commit()
-        return True
-
-    def email_reset_token_confirm(self, token):
-        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
-        try:
-            data = signature.loads(token)
-        except:
-            return False
-        if data.get('confirm.txt') != self.id:
-            return False
-        return True
-
-    def new_email_token_confirm(self, token):
-        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
-        try:
-            data = signature.loads(token)
-        except:
-            return False
-        if data.get('confirm.txt') != self.id:
-            return False
-        new_email = data.get('new_email')
-        self.email = new_email
         db.session.commit()
         return True
 
@@ -134,6 +114,35 @@ class User(db.Model, UserMixin):
 
     def __repr__(self):
         return "<User> %r" % self.user_name
+
+
+class Permission:
+    FOLLOW = 0x01
+    COMMENT = 0x02
+    WRITE_ARTICLES = 0x04
+    ADMINISTER = 0x08
+
+
+class Role(db.Model):
+    __tablename__ = 'role'
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(40), unique=True)
+    permissions = db.Column(db.Integer)
+    users = db.relationship('User', backref='role')
+
+    @staticmethod
+    def insert_role():
+        roles = {
+            'User': Permission.FOLLOW | Permission.COMMENT | Permission.WRITE_ARTICLES,
+            'Administer': Permission.ADMINISTER
+        }
+        for r in roles:
+            role = db.session.query(Role).filter_by(name=r).first()
+            if role is None:
+                role = Role(name=r)
+            role.permissions = roles[r]
+            db.session.add(role)
+            db.session.commit()
 
 
 class Ip(db.Model):
