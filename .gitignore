@@ -6,3 +6,4 @@ env
 __pycache__
 migrations/
 app/static/img/
+*.pyc

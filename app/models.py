@@ -143,10 +143,11 @@ class User(db.Model, UserMixin):
 
 
 class Permission:
-    FOLLOW = 0x01
-    COMMENT = 0x02
-    WRITE_ARTICLES = 0x04
-    ADMINISTER = 0x08
+    COMMENT = 0b00000001
+    ADMINISTER = 0b00000010
+    DELETE = 0b00000100
+    RECOMMEND = 0b00001000
+    SUPERADMIN = 0b10000000
 
 
 class Role(db.Model):
@@ -159,8 +160,9 @@ class Role(db.Model):
     @staticmethod
     def insert_role():
         roles = {
-            'User': Permission.FOLLOW | Permission.COMMENT | Permission.WRITE_ARTICLES,
-            'Administer': Permission.ADMINISTER
+            'User': Permission.COMMENT,
+            'Administer': Permission.COMMENT | Permission.ADMINISTER | Permission.DELETE | Permission.RECOMMEND,
+            'SuperAdminister': Permission.SUPERADMIN
         }
         for r in roles:
             role = db.session.query(Role).filter_by(name=r).first()
