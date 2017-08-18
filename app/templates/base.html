@@ -47,7 +47,7 @@
                             <li>
                                 <a href="{{ url_for('main.about') }}">About</a>
                             </li>
-                            {% if current_user.role_id == 1 %}
+                            {% if current_user.is_authenticated and current_user.can(2) %}
                             <li>
                                 <a href="{{ url_for('main.administration') }}">Administration</a>
                             </li>

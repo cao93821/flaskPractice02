@@ -1,6 +1,6 @@
 from .. import db, photos
-from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, current_app, request, Flask
-from ..models import Blog, User, Comment, Ip
+from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, current_app, request, Flask, abort
+from ..models import Blog, User, Comment, Ip, Permission
 from ..forms import ReleaseForm, CommentForm
 from flask_login import login_required, current_user
 from datetime import date
@@ -59,7 +59,10 @@ def single(blog_id):
 
 
 @main.route('/single/<blog_id>/comment', methods=['POST'])
+@login_required
 def comment(blog_id):
+    if not current_user.can(Permission.COMMENT):
+        abort(404)
     comment_form = CommentForm()
     if comment_form.validate_on_submit():
         comment = Comment(user_id=current_user.id,
@@ -74,6 +77,8 @@ def comment(blog_id):
 @main.route('/administration', methods=['GET', 'POST'])
 @login_required
 def administration():
+    if not current_user.can(Permission.ADMINISTER):
+        abort(404)
     if current_user.is_authenticated:
         results = Blog.query.order_by(Blog.id.desc())
         blogs = [dict(id=result.id,
@@ -89,6 +94,8 @@ def administration():
 @main.route('/administration/delete/<blog_id>', methods=['POST'])
 @login_required
 def delete(blog_id):
+    if not current_user.can(Permission.DELETE):
+        abort(404)
     blog = Blog.query.filter(Blog.id == blog_id).first()
     db.session.delete(blog)
     db.session.commit()
@@ -98,6 +105,8 @@ def delete(blog_id):
 @main.route('/administration/recommend/<blog_id>', methods=['POST'])
 @login_required
 def recommend(blog_id):
+    if not current_user.can(Permission.RECOMMEND):
+        abort(404)
     Blog.query.filter(Blog.id == blog_id).update({Blog.is_recommend: 1})
     db.session.commit()
     return redirect(url_for('main.administration'))
@@ -106,6 +115,8 @@ def recommend(blog_id):
 @main.route('/administration/derecommend/<blog_id>', methods=['POST'])
 @login_required
 def derecommend(blog_id):
+    if not current_user.can(Permission.RECOMMEND):
+        abort(404)
     Blog.query.filter(Blog.id == blog_id).update({Blog.is_recommend: 0})
     db.session.commit()
     return redirect(url_for('main.administration'))
@@ -114,6 +125,8 @@ def derecommend(blog_id):
 @main.route('/release', methods=['GET', 'POST'])
 @login_required
 def release():
+    if not current_user.can(Permission.ADMINISTER):
+        abort(404)
     form = ReleaseForm()
     if form.validate_on_submit():
         filename = photos.save(form.photo.data)
