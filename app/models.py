@@ -68,7 +68,8 @@ class User(db.Model, UserMixin):
     confirmed = db.Column(db.Boolean, default=False)
 
     def can(self, permissions):
-        return self.role is not None and (self.role.permissions & permissions) == permissions
+        return self.role is not None and (
+            (self.role.permissions & permissions) == permissions or self.role.name == 'SuperAdminister')
 
     def is_administer(self):
         return self.can(Permission.ADMINISTER)
