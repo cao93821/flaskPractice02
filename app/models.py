@@ -71,9 +71,6 @@ class User(db.Model, UserMixin):
         return self.role is not None and (
             (self.role.permissions & permissions) == permissions or self.role.name == 'SuperAdminister')
 
-    def is_administer(self):
-        return self.can(Permission.ADMINISTER)
-
     @property
     def password(self):
         raise AttributeError('Password is not readable')

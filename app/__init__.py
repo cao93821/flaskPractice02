@@ -22,7 +22,7 @@ from flask_mail import Mail
 
 
 db = SQLAlchemy()
-mail = Mail()
+email = Mail()
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 photos = UploadSet('photos', IMAGES)
@@ -34,7 +34,7 @@ def create_app(config_name):
 
     login_manager.init_app(app)
     db.init_app(app)
-    mail.init_app(app)
+    email.init_app(app)
     configure_uploads(app, photos)
     patch_request_class(app)
 
