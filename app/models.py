@@ -82,10 +82,10 @@ class User(db.Model, UserMixin):
     def verify_password(self, password):
         return check_password_hash(self.hash_password, password)
 
-    def generate_confirmation_token(self, expiration=3600, *email):
+    def generate_confirmation_token(self, expiration=3600, email=None):
         signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'], expiration)
         if email:
-            return signature.dumps({'confirm.txt': self.id, 'new_email': email[0]})
+            return signature.dumps({'confirm.txt': self.id, 'new_email': email})
         else:
             return signature.dumps({'confirm.txt': self.id})
 
@@ -96,7 +96,7 @@ class User(db.Model, UserMixin):
             data = signature.loads(token)
         except:
             return False
-        user = db.session.query(User).filter_by(id=data.get('confirm.txt'))
+        user = db.session.query(User).filter_by(id=data.get('confirm.txt')).first()
         user.password = password
         db.session.commit()
         return True

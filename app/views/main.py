@@ -5,9 +5,22 @@ from ..forms import ReleaseForm, CommentForm
 from flask_login import login_required, current_user
 from datetime import date
 from config import Config
+from functools import wraps
 from sqlalchemy.sql.expression import distinct
 
 main = Blueprint('main', __name__)
+
+
+def permission_required(permission):
+    def permission_required_closure(func):
+        @wraps(func)  # 神来之笔
+        def wrappers(*args, **kwargs):
+            if not current_user.can(permission):
+                abort(404)
+            else:
+                return func(*args, **kwargs)  # 为什么要return，直接func不行么？？难道和wraps的用法有关系？的确有关系
+        return wrappers
+    return permission_required_closure
 
 
 @main.after_request
@@ -43,7 +56,8 @@ def single(blog_id):
                 body=result.body,
                 img=result.img,
                 gmt_create=result.format_date)
-    comment_results = db.session.query(Comment).filter(Comment.comment_blog_id == blog_id, Comment.reply_id == None).all()
+    comment_results = db.session.query(Comment).filter(Comment.comment_blog_id == blog_id,
+                                                       Comment.reply_id == None).all()
     comments = [dict(id=result.id,
                      user_name=db.session.query(User).filter_by(id=result.user_id).first().user_name,
                      gmt_create=result.format_date,
@@ -60,9 +74,8 @@ def single(blog_id):
 
 @main.route('/single/<blog_id>/comment', methods=['POST'])
 @login_required
+@permission_required(Permission.COMMENT)
 def comment(blog_id):
-    if not current_user.can(Permission.COMMENT):
-        abort(404)
     comment_form = CommentForm()
     if comment_form.validate_on_submit():
         comment = Comment(user_id=current_user.id,
@@ -76,9 +89,8 @@ def comment(blog_id):
 
 @main.route('/administration', methods=['GET', 'POST'])
 @login_required
+@permission_required(Permission.ADMINISTER)
 def administration():
-    if not current_user.can(Permission.ADMINISTER):
-        abort(404)
     if current_user.is_authenticated:
         results = Blog.query.order_by(Blog.id.desc())
         blogs = [dict(id=result.id,
@@ -93,9 +105,8 @@ def administration():
 
 @main.route('/administration/delete/<blog_id>', methods=['POST'])
 @login_required
+@permission_required(Permission.DELETE)
 def delete(blog_id):
-    if not current_user.can(Permission.DELETE):
-        abort(404)
     blog = Blog.query.filter(Blog.id == blog_id).first()
     db.session.delete(blog)
     db.session.commit()
@@ -104,9 +115,8 @@ def delete(blog_id):
 
 @main.route('/administration/recommend/<blog_id>', methods=['POST'])
 @login_required
+@permission_required(Permission.RECOMMEND)
 def recommend(blog_id):
-    if not current_user.can(Permission.RECOMMEND):
-        abort(404)
     Blog.query.filter(Blog.id == blog_id).update({Blog.is_recommend: 1})
     db.session.commit()
     return redirect(url_for('main.administration'))
@@ -114,9 +124,8 @@ def recommend(blog_id):
 
 @main.route('/administration/derecommend/<blog_id>', methods=['POST'])
 @login_required
+@permission_required(Permission.RECOMMEND)
 def derecommend(blog_id):
-    if not current_user.can(Permission.RECOMMEND):
-        abort(404)
     Blog.query.filter(Blog.id == blog_id).update({Blog.is_recommend: 0})
     db.session.commit()
     return redirect(url_for('main.administration'))
@@ -124,9 +133,8 @@ def derecommend(blog_id):
 
 @main.route('/release', methods=['GET', 'POST'])
 @login_required
+@permission_required(Permission.ADMINISTER)
 def release():
-    if not current_user.can(Permission.ADMINISTER):
-        abort(404)
     form = ReleaseForm()
     if form.validate_on_submit():
         filename = photos.save(form.photo.data)
