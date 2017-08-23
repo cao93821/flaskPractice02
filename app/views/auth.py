@@ -8,6 +8,12 @@ from ..mail import send_email
 auth = Blueprint('auth', __name__)
 
 
+@auth.before_app_request
+def before_request():
+    if current_user.is_authenticated:
+        current_user.update_last_online_time()
+
+
 @auth.route('/signup', methods=['GET', 'POST'])
 def signup():
     form = SignupFrom()

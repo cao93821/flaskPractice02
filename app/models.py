@@ -3,6 +3,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import TimedJSONWebSignatureSerializer
 from flask import current_app
+from datetime import datetime
 
 
 def date_transform(raw_date):
@@ -63,15 +64,25 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(40))
     user_name = db.Column(db.String(40))
     hash_password = db.Column(db.Text)
-    role_id = db.Column(db.Integer, db.ForeignKey('role.id'))
+    role_id = db.Column(
+        db.Integer,
+        db.ForeignKey('role.id'),
+        default=lambda: db.session.query(Role).filter_by(name='User').first().id
+    )
     comment = db.relationship('Comment', backref='author')
     confirmed = db.Column(db.Boolean, default=False)
+    real_name = db.Column(db.String(20))
+    about_me = db.Column(db.Text)
+    gmt_create = db.Column(db.DateTime(), default=datetime.now)
+    last_online_time = db.Column(db.DateTime(), default=datetime.now)  # 这里对default参数传入了一个函数对象，使之能在User实例化的时候动态变化
+
+    def update_last_online_time(self):
+        self.last_online_time = datetime.now()
+        db.session.commit()
 
     def can(self, permissions):
-        return self.role is not None and (self.role.permissions & permissions) == permissions
-
-    def is_administer(self):
-        return self.can(Permission.ADMINISTER)
+        return self.role is not None and (
+            (self.role.permissions & permissions) == permissions or self.role.name == 'SuperAdminister')
 
     @property
     def password(self):
@@ -84,10 +95,10 @@ class User(db.Model, UserMixin):
     def verify_password(self, password):
         return check_password_hash(self.hash_password, password)
 
-    def generate_confirmation_token(self, expiration=3600, *email):
+    def generate_confirmation_token(self, expiration=3600, email=None):
         signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'], expiration)
         if email:
-            return signature.dumps({'confirm.txt': self.id, 'new_email': email[0]})
+            return signature.dumps({'confirm.txt': self.id, 'new_email': email})
         else:
             return signature.dumps({'confirm.txt': self.id})
 
@@ -98,7 +109,7 @@ class User(db.Model, UserMixin):
             data = signature.loads(token)
         except:
             return False
-        user = db.session.query(User).filter_by(id=data.get('confirm.txt'))
+        user = db.session.query(User).filter_by(id=data.get('confirm.txt')).first()
         user.password = password
         db.session.commit()
         return True

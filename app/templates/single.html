@@ -70,7 +70,7 @@
                             <header class="clearfix">
                                 <img src="{{ url_for('static', filename='img/logopig.jpg') }}" alt="A Smart Guy" class="avatar">
                                 <div class="meta">
-                                    <h3><a href="#">{{ comment.user_name }}</a></h3>
+                                    <h3><a href="{{ url_for('main.user_profile', user_id=comment.user_id) }}">{{ comment.user_name }}</a></h3>
                                     <span class="date">
                                         {{ comment.gmt_create }}
                                     </span>
