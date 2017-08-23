@@ -4,21 +4,7 @@ from flask_login import LoginManager
 from flask_uploads import UploadSet, configure_uploads, IMAGES, patch_request_class
 from config import config
 from flask_mail import Mail
-
-# app = Flask(__name__)
-# app.config.from_object(config['default'])
-# db = SQLAlchemy(app)
-#
-# migrate = Migrate(app, db)
-#
-# login_manager = LoginManager()
-# login_manager.init_app(app)
-#
-# photos = UploadSet('photos', IMAGES)
-# configure_uploads(app, photos)
-# patch_request_class(app)
-#
-# from app import views, models
+from raven.contrib.flask import Sentry
 
 
 db = SQLAlchemy()
@@ -26,6 +12,7 @@ email = Mail()
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 photos = UploadSet('photos', IMAGES)
+sentry = Sentry()
 
 
 def create_app(config_name):
@@ -37,6 +24,8 @@ def create_app(config_name):
     email.init_app(app)
     configure_uploads(app, photos)
     patch_request_class(app)
+    if config_name != 'test':
+        sentry.init_app(app, dsn=app.config['SENTRY_DSN'])
 
     # app.app_context().push()
     # from .models import Role

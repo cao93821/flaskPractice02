@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="widewrapper main">
+        <div class="container about">
+            <h1>Hello, My name is <span class="about-bold">{{ user.user_name }}</span></h1>
+            <p>real name: {{ user.real_name }}</p>
+            <p>about me: {{ user.about_me }}</p>
+            <p>Member since {{ user.gmt_create }}, Last seen {{ user.last_online_time }}</p>
+            {% if current_user.can(128) %}
+            <p>email: {{ user.email }}</p>
+            {% endif %}
+            {% if current_user.can(128) %}
+            <a href="{{ url_for('main.user_profile_edit_admin', user_id=user.id) }}" style="position:relative;left:750px;bottom:20px"><input type="button" value="编辑" class="btn btn-xlarge btn-clean-one"></a>
+            {% elif current_user.id == user.id %}
+            <a href="{{ url_for('main.user_profile_edit', user_id=user.id) }}" style="position:relative;left:750px;bottom:20px"><input type="button" value="编辑" class="btn btn-xlarge btn-clean-one"></a>
+            {% endif %}
+            <hr>
+        </div>
+    </div>
+{% endblock %}
+
+

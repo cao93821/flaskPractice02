@@ -54,6 +54,11 @@
                             {% endif %}
                             {% if current_user.is_authenticated %}
                             <li>
+                                <a href="{{ url_for('main.user_profile', user_id=current_user.id) }}">My Profile</a>
+                            </li>
+                            {% endif %}
+                            {% if current_user.is_authenticated %}
+                            <li>
                                 <a href="{{ url_for('auth.logout') }}">Logout</a>
                             </li>
                             {% else %}

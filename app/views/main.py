@@ -1,7 +1,7 @@
 from .. import db, photos
 from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, current_app, request, Flask, abort
-from ..models import Blog, User, Comment, Ip, Permission
-from ..forms import ReleaseForm, CommentForm
+from ..models import Blog, User, Comment, Ip, Permission, Role
+from ..forms import ReleaseForm, CommentForm, EditUserProfileForm, EditUserProfileAdminForm
 from flask_login import login_required, current_user
 from datetime import date
 from config import Config
@@ -16,7 +16,7 @@ def permission_required(permission):
         @wraps(func)  # 神来之笔
         def wrappers(*args, **kwargs):
             if not current_user.can(permission):
-                abort(404)
+                abort(444)
             else:
                 return func(*args, **kwargs)  # 为什么要return，直接func不行么？？难道和wraps的用法有关系？的确有关系
         return wrappers
@@ -60,6 +60,7 @@ def single(blog_id):
                                                        Comment.reply_id == None).all()
     comments = [dict(id=result.id,
                      user_name=db.session.query(User).filter_by(id=result.user_id).first().user_name,
+                     user_id=result.user_id,
                      gmt_create=result.format_date,
                      comment_content=result.comment_content) for result in comment_results]
     recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
@@ -150,6 +151,64 @@ def release():
 @main.route('/about')
 def about():
     return render_template('about.html')
+
+
+@main.route('/user_profile/<user_id>')
+def user_profile(user_id):
+    user = db.session.query(User).filter_by(id=user_id).first()
+    if not user:
+        abort(444)
+    return render_template('user_profile.html', user=user)
+
+
+@main.route('/user_profile/<user_id>/edit', methods=['GET', 'POST'])
+@login_required
+def user_profile_edit(user_id):
+    if current_user.id != int(user_id):  # 这里注意一下，传进来的东西全部是字符串，如果未加申明的话，所以要用int进行类型转换
+        abort(444)
+    form = EditUserProfileForm()
+    if form.validate_on_submit():
+        current_user.real_name = form.real_name.data
+        current_user.about_me = form.about_me.data
+        db.session.commit()
+        flash('your profile has been updated')
+        return redirect(url_for('main.user_profile_edit', user_id=user_id))
+
+    # 应该通过form.real_name.data去对填充form域的默认值，而非通过placeholder属性去改，后者会导致提交的时候出现空数据
+    form.real_name.data = current_user.real_name
+    form.about_me.data = current_user.about_me
+
+    return render_template('user_profile_edit.html', form=form)
+
+
+@main.route('/user_profile/<user_id>/edit_admin', methods=['GET', 'POST'])
+@login_required
+@permission_required(Permission.SUPERADMIN)
+def user_profile_edit_admin(user_id):
+    user = db.session.query(User).filter_by(id=user_id).first()
+    if user:
+        form = EditUserProfileAdminForm(user)
+        if form.validate_on_submit():
+            user.email = form.email.data
+            user.user_name = form.user_name.data
+            user.confirmed = form.confirmed.data
+
+            # 这里的get需要的是一个primary key的值，role.data返回的是一个int, 同时应该也会修改user.role_id
+            user.role = db.session.query(Role).get(form.role.data)
+
+            user.real_name = form.real_name.data
+            user.about_me = form.about_me.data
+            db.session.commit()
+            flash('profile has been updated')
+            return redirect(url_for('main.user_profile_edit_admin', user_id=user_id))
+        form.email.data = user.email
+        form.user_name.data = user.user_name
+        form.confirmed.data = user.confirmed
+        form.role.data = user.role_id
+        form.real_name.data = user.real_name
+        form.about_me.data = user.about_me
+
+        return render_template('user_profile_edit_admin.html', form=form, user=user)
 
 
 @main.route('/_uploads/photos/<filename>')

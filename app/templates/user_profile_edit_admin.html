@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="widewrapper main">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6 col-md-offset-3 clean-superblock" id="contact">
+                    <form action="{{ url_for('main.user_profile_edit_admin', user_id=user.id) }}" method="post" accept-charset="utf-8" class="contact-form">
+                        {{ form.hidden_tag() }}
+                        <h2>edit profile</h2>
+                        <p>email: {{ form.email(class="form-control input-lg") }}</p>
+                        <p>user_name: {{ form.user_name(class="form-control input-lg") }}</p>
+                        <p>confirmed: {{ form.confirmed() }}</p>
+                        <p>role: {{ form.role() }}</p>
+                        <p>real name: {{ form.real_name(class="form-control input-lg") }}</p>
+                        <p>about me: {{ form.about_me(class="form-control input-lg", rows=10) }}</p>
+                        {% for error in form.errors.real_name %}
+                        <p style="color:red;">{{ error }}</p>
+                        {% endfor %}
+                        <p>{{ form.submit(class="btn btn-xlarge btn-clean-one") }}</p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

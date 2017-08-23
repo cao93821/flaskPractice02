@@ -25,6 +25,7 @@ class Config:
 class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = 'mysql://root:yiwen517112@139.196.77.131/flask_test'
+    SENTRY_DSN = 'http://ea5f8dfcc4be45db8f5b290704b83cdf:095c1899cbda4342bf4fff11b60d3ea3@139.196.77.131:9000/2'
 
 
 class TestingConfig(Config):
@@ -34,6 +35,7 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     SQLALCHEMY_DATABASE_URI = 'mysql://root:yiwen517112@139.196.77.131/flask'
+    SENTRY_DSN = 'http://962494174ddc4a07b140ad4267321e48:763a4cfad6634a97a5f018d13856f126@139.196.77.131:9000/8'
 
 
 config = {

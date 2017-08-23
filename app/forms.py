@@ -1,8 +1,9 @@
 from flask_wtf import Form
-from wtforms import StringField, PasswordField, SubmitField, FileField, TextAreaField
-from wtforms.validators import DataRequired, equal_to
+from wtforms import StringField, PasswordField, SubmitField, FileField, TextAreaField, BooleanField, SelectField
+from wtforms.validators import DataRequired, equal_to, Length, ValidationError
 from flask_wtf.file import FileRequired, FileAllowed
-from app import photos
+from app import photos, db
+from .models import Role, User
 
 
 class LoginForm(Form):
@@ -51,3 +52,32 @@ class PasswordResetForm(Form):
 class SetNewEmailForm(Form):
     new_email = StringField('email', validators=[DataRequired()])
     submit = SubmitField('reset email')
+
+
+class EditUserProfileForm(Form):
+    real_name = StringField('real_name', validators=[Length(0, 64)])
+    about_me = TextAreaField('about_me')
+    submit = SubmitField('submit')
+
+
+class EditUserProfileAdminForm(Form):
+    email = StringField('email', validators=[DataRequired(), Length(1, 64)])
+    user_name = StringField('user_name', validators=[DataRequired(), Length(1, 64)])
+    confirmed = BooleanField('confirmed')
+    role = SelectField('role', coerce=int)  # 这里是要对data做一个强制类型转换
+    real_name = StringField('real_name', validators=[Length(0, 64)])
+    about_me = TextAreaField('about_me')
+    submit = SubmitField('submit')
+
+    def __init__(self, user, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.role.choices = [(role.id, role.name) for role in db.session.query(Role).all()]  # choice的前一个是value，后一个label，很简单看看源码就明白了
+        self.user = user
+
+    def validate_email(self, field):
+        if field.data != self.user.email and db.session.query(User).filter_by(email=field.data).first():
+            raise ValidationError('Email is already used')
+
+    def validate_user_name(self, field):
+        if field.data != self.user.user_name and db.session.query(User).filter_by(user_name=field.data).first():
+            raise ValidationError('user name is already used')
