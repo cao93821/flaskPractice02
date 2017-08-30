@@ -7,3 +7,4 @@ __pycache__
 migrations/
 app/static/img/
 *.pyc
+*.conf
