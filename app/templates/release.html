@@ -15,6 +15,10 @@
                         {% for error in form.errors.body %}
                         <p style="color:red;">{{ error }}</p>
                         {% endfor %}
+                        {% block scripts %}
+                        {{ super }}
+                        {{ pagedown.include_pagedown() }}
+                        {% endblock %}
                         <p>{{ form.photo(class="form-control input-lg") }}</p>
                         {% for error in form.errors.photo %}
                         <p style="color:red;">{{ error }}</p>

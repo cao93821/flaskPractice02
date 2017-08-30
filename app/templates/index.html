@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros %}
 {% block content %}
     <div class="widewrapper main">
         <div class="container">
@@ -15,7 +16,11 @@
                                     <hr>
                                 </header>
                                 <div class="body">
+                                {% if blog.body_html %}
+                                    {{ blog.body_html | safe }}
+                                {% else %}
                                     {{ blog.body }}
+                                {% endif %}
                                 </div>
                                 <div class="clearfix">
                                     <a href="{{ url_for('main.single', blog_id=blog.id) }}" class="btn btn-clean-one">Read more</a>
@@ -23,10 +28,13 @@
                             </article>
                         </div>
                         {% endfor %}
+                        <div class="pagination">
+                            {{ macros.pagination_widget(pagination, 'main.index') }}
+                        </div>
                     </div>
 
                     <div class="paging">
-                        <a href="#" class="older">Older Post</i></a>
+                        <a href="#" class="older">Older Post</a>
                     </div>
                 </div>
                 {% block aside %}

@@ -5,6 +5,7 @@ from flask_uploads import UploadSet, configure_uploads, IMAGES, patch_request_cl
 from config import config
 from flask_mail import Mail
 from raven.contrib.flask import Sentry
+from flask_pagedown import PageDown
 
 
 db = SQLAlchemy()
@@ -12,6 +13,7 @@ email = Mail()
 login_manager = LoginManager()
 login_manager.login_view = 'auth.login'
 photos = UploadSet('photos', IMAGES)
+pagedown = PageDown()
 sentry = Sentry()
 
 
@@ -22,14 +24,15 @@ def create_app(config_name):
     login_manager.init_app(app)
     db.init_app(app)
     email.init_app(app)
+    pagedown.init_app(app)
     configure_uploads(app, photos)
     patch_request_class(app)
     if config_name != 'test':
         sentry.init_app(app, dsn=app.config['SENTRY_DSN'])
 
-    # app.app_context().push()
-    # from .models import Role
-    # Role.insert_role()
+    app.app_context().push()
+    from .models import Role
+    Role.insert_role()
 
     from .views import main, auth
     app.register_blueprint(main.main)

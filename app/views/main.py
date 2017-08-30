@@ -1,24 +1,25 @@
+from datetime import date
+from functools import wraps
+
 from .. import db, photos
-from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, current_app, request, Flask, abort
+from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, request, abort
 from ..models import Blog, User, Comment, Ip, Permission, Role
 from ..forms import ReleaseForm, CommentForm, EditUserProfileForm, EditUserProfileAdminForm
 from flask_login import login_required, current_user
-from datetime import date
 from config import Config
-from functools import wraps
-from sqlalchemy.sql.expression import distinct
+
 
 main = Blueprint('main', __name__)
 
 
 def permission_required(permission):
     def permission_required_closure(func):
-        @wraps(func)  # 神来之笔
+        @wraps(func)
         def wrappers(*args, **kwargs):
             if not current_user.can(permission):
                 abort(444)
             else:
-                return func(*args, **kwargs)  # 为什么要return，直接func不行么？？难道和wraps的用法有关系？的确有关系
+                return func(*args, **kwargs)
         return wrappers
     return permission_required_closure
 
@@ -34,43 +35,63 @@ def pv_statistics(response):
 @main.route('/index')
 @main.route('/')
 def index():
-    results = Blog.query.order_by(Blog.id.desc())
-    blogs = [dict(id=result.id,
-                  title=result.title,
-                  body=result.body,
-                  img=result.img,
-                  gmt_create=result.format_date
-                  ) for result in results]
     recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
     recommended_blogs = [dict(id=result.id,
                               title=result.title) for result in recommended_blogs_result]
-    return render_template('index.html', blogs=blogs, recommended_blogs=recommended_blogs)
+    page = request.args.get('page', 1, type=int)
+    pagination = Blog.query.order_by(Blog.gmt_create.desc()).paginate(
+        page,
+        per_page=20,
+        error_out=False
+    )
+    blogs = pagination.items
+    return render_template('index.html', blogs=blogs, recommended_blogs=recommended_blogs, pagination=pagination)
 
 
 @main.route('/single/<blog_id>')
 def single(blog_id):
     comment_form = CommentForm()
     result = db.session.query(Blog).filter_by(id=blog_id).first()
-    blog = dict(id=result.id,
-                title=result.title,
-                body=result.body,
-                img=result.img,
-                gmt_create=result.format_date)
-    comment_results = db.session.query(Comment).filter(Comment.comment_blog_id == blog_id,
-                                                       Comment.reply_id == None).all()
-    comments = [dict(id=result.id,
-                     user_name=db.session.query(User).filter_by(id=result.user_id).first().user_name,
-                     user_id=result.user_id,
-                     gmt_create=result.format_date,
-                     comment_content=result.comment_content) for result in comment_results]
+    blog = dict(
+        id=result.id,
+        title=result.title,
+        body=result.body,
+        img=result.img,
+        gmt_create=result.format_date,
+        body_html=result.body_html
+    )
+    page = request.args.get('page', 1, type=int)
+    pagination = db.session.query(Comment).filter(
+        Comment.comment_blog_id == blog_id,
+        Comment.reply_id == None
+    ).order_by(Comment.gmt_create.desc()).paginate(
+        page,
+        per_page=5,
+        error_out=False
+    )
+
+    comments = [dict(
+        id=result.id,
+        user_name=db.session.query(User).filter_by(id=result.user_id).first().user_name,
+        user_id=result.user_id,
+        gmt_create=result.format_date,
+        comment_content=result.comment_content
+    ) for result in pagination.items]
+
     recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
-    recommended_blogs = [dict(id=result.id,
-                              title=result.title) for result in recommended_blogs_result]
-    return render_template('single.html',
-                           blog=blog,
-                           recommended_blogs=recommended_blogs,
-                           comment_form=comment_form,
-                           comments=comments)
+    recommended_blogs = [dict(
+        id=result.id,
+        title=result.title
+    ) for result in recommended_blogs_result]
+
+    return render_template(
+        'single.html',
+        blog=blog,
+        recommended_blogs=recommended_blogs,
+        comment_form=comment_form,
+        pagination=pagination,
+        comments=comments
+    )
 
 
 @main.route('/single/<blog_id>/comment', methods=['POST'])
@@ -94,11 +115,13 @@ def comment(blog_id):
 def administration():
     if current_user.is_authenticated:
         results = Blog.query.order_by(Blog.id.desc())
-        blogs = [dict(id=result.id,
-                      title=result.title,
-                      body=result.body,
-                      img=result.img,
-                      is_recommend=result.is_recommend) for result in results]
+        blogs = [dict(
+            id=result.id,
+            title=result.title,
+            body=result.body,
+            img=result.img,
+            is_recommend=result.is_recommend
+        ) for result in results]
         pv = db.session.query(Ip.ip).count()
         return render_template('administration.html', blogs=blogs, pv=pv)
     return redirect(url_for('auth.login'))

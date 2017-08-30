@@ -35,7 +35,7 @@ class UserModelTestCase(unittest.TestCase):
     def test_no_password_getter(self):
         u1 = db.session.query(User).filter_by(user_name='u1').first()
         with self.assertRaises(AttributeError):
-            u1.password
+            print(u1.password)
 
     def test_password_verification(self):
         u1 = db.session.query(User).filter_by(user_name='u1').first()
