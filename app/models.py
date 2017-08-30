@@ -2,8 +2,10 @@ from app import db
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import TimedJSONWebSignatureSerializer
-from flask import current_app
+from flask import current_app, url_for
 from datetime import datetime
+import bleach
+from markdown import markdown
 
 
 def date_transform(raw_date):
@@ -32,13 +34,44 @@ class Blog(db.Model):
     is_recommend = db.Column(db.Integer)
     author_id = db.Column(db.Integer)
     comment = db.relationship('Comment', backref='comment_blog')
+    body_html = db.Column(db.Text)
+
+    @staticmethod
+    def on_changed_body(target, value, oldvalue, initiator):
+        allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
+                        'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
+                        'h1', 'h2', 'h3', 'p']
+        target.body_html = bleach.linkify(bleach.clean(
+            markdown(value, output_format='html'),
+            tags=allowed_tags,
+            strip=True
+        ))
 
     @property
     def format_date(self):
         return date_transform(self.gmt_create)
 
+    @staticmethod
+    def generate_fake(count=100):
+        from random import seed, randint
+        import forgery_py
+
+        seed()
+        user_count = User.query.count()
+        for i in range(count):
+            user = User.query.offset(randint(0, user_count - 1)).first()
+            blog = Blog(title=forgery_py.lorem_ipsum.word(),
+                        body=forgery_py.lorem_ipsum.sentences(randint(1, 3)),
+                        img=url_for('static', filename='img/small_pig.jpg'),
+                        gmt_create=forgery_py.date.date(True),
+                        author_id=user.id)
+            db.session.add(blog)
+            db.session.commit()
+
     def __repr__(self):
         return "<Blog> %r" % self.title
+
+db.event.listen(Blog.body, 'set', Blog.on_changed_body)
 
 
 class Comment(db.Model):
@@ -53,6 +86,25 @@ class Comment(db.Model):
     @property
     def format_date(self):
         return date_transform(self.gmt_create)
+
+    @staticmethod
+    def generate_fake(count=5000):
+        from random import seed, randint
+        import forgery_py
+
+        seed()
+        user_count = db.session.query(User).count()
+        blog_count = db.session.query(Blog).count()
+        for i in range(count):
+            user = db.session.query(User).offset(randint(0, user_count - 1)).first()
+            blog = db.session.query(Blog).offset(randint(0, blog_count - 1)).first()
+            comment = Comment(author=user,
+                              gmt_create=forgery_py.date.date(True),
+                              comment_content=forgery_py.lorem_ipsum.sentence(),
+                              comment_blog=blog)
+            db.session.add(comment)
+            db.session.commit()
+
 
     def __repr__(self):
         return "<Comment> {}".format(self.id)
@@ -148,6 +200,28 @@ class User(db.Model, UserMixin):
         self.confirmed = True
         db.session.commit()
         return True
+
+    @staticmethod
+    def generate_fake(count=100):
+        from sqlalchemy.exc import IntegrityError
+        from random import seed
+        import forgery_py
+
+        seed()
+        for i in range(count):
+            user = User(email=forgery_py.internet.email_address(),
+                        user_name=forgery_py.internet.user_name(),
+                        password=forgery_py.lorem_ipsum.word(),
+                        confirmed=True,
+                        real_name=forgery_py.name.full_name(),
+                        about_me=forgery_py.lorem_ipsum.sentence(),
+                        gmt_create=forgery_py.date.date(True),
+                        role=db.session.query(Role).filter_by(name='User').first())
+            db.session.add(user)
+            try:
+                db.session.commit()
+            except IntegrityError:
+                db.session.rollback()
 
     def __repr__(self):
         return "<User> %r" % self.user_name

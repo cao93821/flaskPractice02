@@ -4,6 +4,7 @@ from wtforms.validators import DataRequired, equal_to, Length, ValidationError
 from flask_wtf.file import FileRequired, FileAllowed
 from app import photos, db
 from .models import Role, User
+from flask_pagedown.fields import PageDownField
 
 
 class LoginForm(Form):
@@ -23,7 +24,7 @@ class SignupFrom(Form):
 
 class ReleaseForm(Form):
     title = StringField('title', validators=[DataRequired()])
-    body = TextAreaField('body', validators=[DataRequired()])
+    body = PageDownField('body', validators=[DataRequired()])
     photo = FileField('photo', validators=[
         FileAllowed(photos, 'only picture'),
         FileRequired('have not select a picture')

@@ -17,7 +17,13 @@
                             <div class="meta">
                                 <i class="fa fa-user"></i> Yiwen <i class="fa fa-calendar"></i>{{ blog.gmt_create }}<i class="fa fa-comments"></i><span class="data"><a href="#comments">3 Comments</a></span>
                             </div>
-                            <p>{{ blog.body }}</p>
+                            <div class="post-body">
+                                {% if blog.body_html %}
+                                    {{ blog.body_html | safe }}
+                                {% else %}
+                                    {{ blog.body }}
+                                {% endif %}
+                            </div>
                         </div>
                     </article>
 
@@ -86,6 +92,9 @@
                             </div>
                         </article>
                         {% endfor %}
+                        <div class="pagination">
+                            {{ macros.pagination_widget(pagination, 'main.single', blog_id=blog.id) }}
+                        </div>
                     </aside>
 
                     <aside class="create-comment" id="create-comment">
