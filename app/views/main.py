@@ -2,7 +2,7 @@ from datetime import date
 from functools import wraps
 
 from .. import db, photos
-from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, request, abort
+from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, request, abort, make_response
 from ..models import Blog, User, Comment, Ip, Permission, Role
 from ..forms import ReleaseForm, CommentForm, EditUserProfileForm, EditUserProfileAdminForm
 from flask_login import login_required, current_user
@@ -32,19 +32,38 @@ def pv_statistics(response):
     return response
 
 
+@main.route('/show_followed')
+@login_required
+def show_followed():
+    response = make_response(redirect(url_for('.index')))
+    response.set_cookie('show_followed', '1', max_age=30*24*60*60)
+    return response
+
+
 @main.route('/index')
 @main.route('/')
 def index():
-    recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
-    recommended_blogs = [dict(id=result.id,
-                              title=result.title) for result in recommended_blogs_result]
+    is_show_followed = False
+    if current_user.is_authenticated:
+        is_show_followed = bool(request.cookies.get('show_followed', ''))
+    # 如果是已登录用户，则只返回他关注的人的Blog
+    if is_show_followed:
+        blog_query = current_user.followed_blogs
+    else:
+        blog_query = Blog.query
     page = request.args.get('page', 1, type=int)
-    pagination = Blog.query.order_by(Blog.gmt_create.desc()).paginate(
+    pagination = blog_query.order_by(Blog.gmt_create.desc()).paginate(
         page,
         per_page=20,
         error_out=False
     )
     blogs = pagination.items
+
+    recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
+    recommended_blogs = [dict(
+        id=result.id,
+        title=result.title
+    ) for result in recommended_blogs_result]
     return render_template('index.html', blogs=blogs, recommended_blogs=recommended_blogs, pagination=pagination)
 
 
@@ -232,6 +251,24 @@ def user_profile_edit_admin(user_id):
         form.about_me.data = user.about_me
 
         return render_template('user_profile_edit_admin.html', form=form, user=user)
+
+
+@main.route('/follow/<int:user_id>')
+@login_required
+def follow(user_id):
+    follow_user = User.query.filter_by(id=user_id).first()
+    if follow_user:
+        current_user.follow(follow_user)
+    return redirect(url_for('.user_profile', user_id=user_id))
+
+
+@main.route('/unfollow/<int:user_id>')
+@login_required
+def unfollow(user_id):
+    follow_user = User.query.filter_by(id=user_id).first()
+    if follow_user:
+        current_user.unfollow(follow_user)
+    return redirect(url_for('.user_profile', user_id=user_id))
 
 
 @main.route('/_uploads/photos/<filename>')

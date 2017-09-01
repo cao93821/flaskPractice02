@@ -10,9 +10,22 @@
             <p>email: {{ user.email }}</p>
             {% endif %}
             {% if current_user.can(128) %}
-            <a href="{{ url_for('main.user_profile_edit_admin', user_id=user.id) }}" style="position:relative;left:750px;bottom:20px"><input type="button" value="编辑" class="btn btn-xlarge btn-clean-one"></a>
+            <a href="{{ url_for('.user_profile_edit_admin', user_id=user.id) }}" style="position:relative;left:750px;bottom:20px"><input type="button" value="编辑" class="btn btn-xlarge btn-clean-one"></a>
             {% elif current_user.id == user.id %}
-            <a href="{{ url_for('main.user_profile_edit', user_id=user.id) }}" style="position:relative;left:750px;bottom:20px"><input type="button" value="编辑" class="btn btn-xlarge btn-clean-one"></a>
+            <a href="{{ url_for('.user_profile_edit', user_id=user.id) }}" style="position:relative;left:750px;bottom:20px"><input type="button" value="编辑" class="btn btn-xlarge btn-clean-one"></a>
+            {% endif %}
+            {% if not current_user.is_following(user) %}
+            <a href="{{ url_for('.follow', user_id=user.id) }}"
+               class="btn btn-primary">follow</a>
+            {% else %}
+            <a href="{{ url_for('.unfollow', user_id=user.id) }}"
+               class="btn btn=default">Unfollow</a>
+            {% endif %}
+            Followers: <span class="badge">{{ user.follower.count() }}</span>
+            Following: <span class="badge">{{ user.followed.count() }}</span>
+            {% if current_user.is_authenticated and user != current_user and
+            user.is_following(current_user) %}
+            | <span class="label label-default">Follows you</span>
             {% endif %}
             <hr>
         </div>

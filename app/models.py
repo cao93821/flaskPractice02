@@ -105,9 +105,15 @@ class Comment(db.Model):
             db.session.add(comment)
             db.session.commit()
 
-
     def __repr__(self):
         return "<Comment> {}".format(self.id)
+
+
+class Follow(db.Model):
+    __tablename__ = 'follow'
+    follower_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    followed_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    gmt_create = db.Column(db.DateTime(), default=datetime.now)
 
 
 class User(db.Model, UserMixin):
@@ -126,7 +132,57 @@ class User(db.Model, UserMixin):
     real_name = db.Column(db.String(20))
     about_me = db.Column(db.Text)
     gmt_create = db.Column(db.DateTime(), default=datetime.now)
-    last_online_time = db.Column(db.DateTime(), default=datetime.now)  # 这里对default参数传入了一个函数对象，使之能在User实例化的时候动态变化
+    # 这里对default参数传入了一个函数对象，使之能在User实例化的时候动态变化
+    last_online_time = db.Column(db.DateTime(), default=datetime.now)
+    # 对于backref使用lazy='joined'模式，因为一个Follow只会有一个对应的follower和followed，所以不需要返回一个Query
+    # 对于一个人的followed，在对应的Follow当中，反向来说他就是那个follower
+    # 设置cascade='all, delete-orphan'可以使得在删除对象的同时将其此关联的对应的另一个对象一同删除，实验了一下果然可以
+    followed = db.relationship('Follow',
+                               foreign_keys=[Follow.follower_id],
+                               backref=db.backref('follower', lazy='joined'),
+                               lazy='dynamic',
+                               cascade='all, delete-orphan')
+    follower = db.relationship('Follow',
+                               foreign_keys=[Follow.followed_id],
+                               backref=db.backref('followed', lazy='joined'),
+                               lazy='dynamic',
+                               cascade='all, delete-orphan')
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # 不能直接使用self.follow()，会导致无法建立follow，因为user还没有建立获取不到外键的值
+        self.followed.append(Follow(followed=self))
+
+    def follow(self, user):
+        if not self.is_following(user):
+            follow = Follow(follower_id=self.id, followed_id=user.id)
+            db.session.add(follow)
+            db.session.commit()
+
+    def unfollow(self, user):
+        follow = db.session.query(Follow).filter_by(follower_id=self.id, followed_id=user.id).first()
+        if follow:
+            db.session.delete(follow)
+            db.session.commit()
+
+    def is_following(self, user):
+        return db.session.query(Follow).filter_by(follower_id=self.id, followed_id=user.id).first() is not None
+
+    @staticmethod
+    def follow_self():
+        users = db.session.query(User).all()
+        for user in users:
+            user.follow(user)
+            db.session.commit()
+
+    @property
+    def followed_blogs(self):
+        """
+
+        :return: 一个已经查询了所有关注的用户的Blog的Query
+        """
+        # 为增加可重用性，返回的是一个Query而非一个包含Blog对象的list
+        return Blog.query.join(Follow, Follow.followed_id==Blog.author_id).filter(Follow.follower_id==self.id)
 
     def update_last_online_time(self):
         self.last_online_time = datetime.now()

@@ -27,7 +27,11 @@
     <header>
         <div class="widewrapper masthead">
             <div class="container">
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('main.show_followed') }}" id="logo">
+                {% else %}
                 <a href="{{ url_for('main.index') }}" id="logo">
+                {% endif %}
                     <img src="{{ url_for('static', filename='img/logopig.jpg') }}" style="height:72px;width:100px" alt="clean Blog">
                 </a>
 
