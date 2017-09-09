@@ -1,30 +1,68 @@
-from app import db
+from datetime import datetime
+import logging
+
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import TimedJSONWebSignatureSerializer
 from flask import current_app, url_for
-from datetime import datetime
 import bleach
 from markdown import markdown
 
-
-def date_transform(raw_date):
-    month_transform = {1: 'January',
-                       2: 'February',
-                       3: 'March',
-                       4: 'April',
-                       5: 'May',
-                       6: 'June',
-                       7: 'July',
-                       8: 'August',
-                       9: 'September',
-                       10: 'October',
-                       11: 'November',
-                       12: 'December'}
-    return '{} {} {}'.format(raw_date.day, month_transform[raw_date.month], raw_date.year)
+from app import db
 
 
-class Blog(db.Model):
+# 初始化一个logger
+logger = logging.Logger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(logging.Formatter('name: %(name)s\nlevel: %(levelname)s\n%(message)s\n'))
+logger.addHandler(handler)
+
+
+class UtilMixin:
+    """一个工具混类"""
+
+    @property
+    def format_date(self):
+        """格式化date
+
+        :return: 格式化后的date(str)
+        :raise: AttributeError
+        """
+        # 由于是一个统一的工具类，所以可能会被不具有gmt_create属性的实例所用到，如果没有这个实例属性，就抛出异常
+        # 这是一种更简便的写法，比先检验后没有这个属性更加方便
+        return UtilMixin.date_transform(getattr(self, 'gmt_create'))
+
+    # 这里有个疑问，究竟是使用staticmethod还是将其设为函数呢？按理说这个函数并不是通过的，只会被UtilMixin这个类所用到
+    # 目前还是将这种非通用的东西组织到类里面
+    # 具体的解决方式还有待探索，这是涉及代码组织方面的问题
+    @staticmethod
+    def date_transform(raw_date):
+        """格式化日期
+
+        :param raw_date: 日期
+        :type raw_date: date object
+        :return: 一个表示日期的str
+        """
+        month_transform = {
+            1: 'January',
+            2: 'February',
+            3: 'March',
+            4: 'April',
+            5: 'May',
+            6: 'June',
+            7: 'July',
+            8: 'August',
+            9: 'September',
+            10: 'October',
+            11: 'November',
+            12: 'December'
+        }
+        return '{} {} {}'.format(raw_date.day, month_transform[raw_date.month], raw_date.year)
+
+
+class Blog(db.Model, UtilMixin):
     __tablename__ = 'blog'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(40))
@@ -38,27 +76,35 @@ class Blog(db.Model):
 
     @staticmethod
     def on_changed_body(target, value, oldvalue, initiator):
+        """event.listen的回调函数，在所监听的事件发生后进行回调
+
+        :param target:目标对象
+        :param value:现值
+        :param oldvalue:原值
+        :param initiator:
+        :return:
+        """
         allowed_tags = ['a', 'abbr', 'acronym', 'b', 'blockquote', 'code',
                         'em', 'i', 'li', 'ol', 'pre', 'strong', 'ul',
                         'h1', 'h2', 'h3', 'p']
+        # 将body当中存储的markdown语句转化为html语句
         target.body_html = bleach.linkify(bleach.clean(
             markdown(value, output_format='html'),
             tags=allowed_tags,
             strip=True
         ))
 
-    @property
-    def format_date(self):
-        return date_transform(self.gmt_create)
-
     @staticmethod
     def generate_fake(count=100):
+        """生成假数据，测试的时候用"""
         from random import seed, randint
         import forgery_py
 
+        # 先要生成一个随机数种子
         seed()
         user_count = User.query.count()
         for i in range(count):
+            # offset就是偏移量
             user = User.query.offset(randint(0, user_count - 1)).first()
             blog = Blog(title=forgery_py.lorem_ipsum.word(),
                         body=forgery_py.lorem_ipsum.sentences(randint(1, 3)),
@@ -71,10 +117,12 @@ class Blog(db.Model):
     def __repr__(self):
         return "<Blog> %r" % self.title
 
+
+# 监听body字段的修改，如有发生回调on_changed_body方法，更新body_html
 db.event.listen(Blog.body, 'set', Blog.on_changed_body)
 
 
-class Comment(db.Model):
+class Comment(db.Model, UtilMixin):
     __tablename__ = 'comment'
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -83,12 +131,9 @@ class Comment(db.Model):
     comment_content = db.Column(db.Text)
     comment_blog_id = db.Column(db.Integer, db.ForeignKey('blog.id'))
 
-    @property
-    def format_date(self):
-        return date_transform(self.gmt_create)
-
     @staticmethod
     def generate_fake(count=5000):
+        """生成测试用的假数据"""
         from random import seed, randint
         import forgery_py
 
@@ -115,8 +160,11 @@ class Follow(db.Model):
     followed_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
     gmt_create = db.Column(db.DateTime(), default=datetime.now)
 
+    def __repr__(self):
+        return "<Follow> {} follow {}".format(self.follower_id, self.followed_id)
 
-class User(db.Model, UserMixin):
+
+class User(db.Model, UserMixin, UtilMixin):
     __tablename__ = 'user'
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(40))
@@ -154,22 +202,39 @@ class User(db.Model, UserMixin):
         self.followed.append(Follow(followed=self))
 
     def follow(self, user):
+        """关注
+
+        :param user: 要关注的人
+        :type user: User
+        """
         if not self.is_following(user):
             follow = Follow(follower_id=self.id, followed_id=user.id)
             db.session.add(follow)
             db.session.commit()
 
     def unfollow(self, user):
+        """取消关注
+
+        :param user: 要取消关注的人
+        :type user: User
+        """
         follow = db.session.query(Follow).filter_by(follower_id=self.id, followed_id=user.id).first()
         if follow:
             db.session.delete(follow)
             db.session.commit()
 
     def is_following(self, user):
+        """查询是否正在关注
+
+        :param user: 查询对象
+        :type user: User
+        :return: True or False
+        """
         return db.session.query(Follow).filter_by(follower_id=self.id, followed_id=user.id).first() is not None
 
     @staticmethod
     def follow_self():
+        """关注自己，新版本批量更新数据库记录用的"""
         users = db.session.query(User).all()
         for user in users:
             user.follow(user)
@@ -177,7 +242,7 @@ class User(db.Model, UserMixin):
 
     @property
     def followed_blogs(self):
-        """
+        """获取关注的所有用户的blog
 
         :return: 一个已经查询了所有关注的用户的Blog的Query
         """
@@ -185,37 +250,79 @@ class User(db.Model, UserMixin):
         return Blog.query.join(Follow, Follow.followed_id==Blog.author_id).filter(Follow.follower_id==self.id)
 
     def update_last_online_time(self):
+        """更新最近上线时间"""
         self.last_online_time = datetime.now()
         db.session.commit()
 
     def can(self, permissions):
+        """查询是否拥有某权限
+
+        :param permissions: Permissions当中的权限，是一个数字
+        :return: True or False
+        """
         return self.role is not None and (
             (self.role.permissions & permissions) == permissions or self.role.name == 'SuperAdminister')
 
     @property
     def password(self):
+        """通过descriptor将密码设置为不可读"""
         raise AttributeError('Password is not readable')
 
     @password.setter
     def password(self, password):
+        """设置密码的时候将密码进行加密"""
         self.hash_password = generate_password_hash(password)
 
     def verify_password(self, password):
+        """验证密码
+
+        :param password: 密码
+        :type password: str
+        :return: True or False
+        """
         return check_password_hash(self.hash_password, password)
 
     def generate_confirmation_token(self, expiration=3600, email=None):
+        """生成一个token
+
+        :param expiration: 过期时间，单位秒
+        :param email: 邮箱地址
+        :type email: str
+        :return: token
+        :rtype: bytes
+        """
         signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'], expiration)
         if email:
             return signature.dumps({'confirm.txt': self.id, 'new_email': email})
+        return signature.dumps({'confirm.txt': self.id})
+
+    @staticmethod
+    def token_analysis(token):
+        """工具方法，用来解析token
+        要注意有可能解析出来的是一个空数据，谨慎使用if做判断，不过如果是空数据也是无效的，所以就那么用了
+
+        :param token: token(bytes)
+        :return: 如果token可解析则返回解析获得的数据，如不可解析则返回None
+        """
+        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
+        try:
+            # 注意load针对file，loads针对字符串
+            data = signature.loads(token)
+        except Exception:
+            return None
         else:
-            return signature.dumps({'confirm.txt': self.id})
+            return data
 
     @staticmethod
     def password_reset_token_confirm(token, password):
-        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
-        try:
-            data = signature.loads(token)
-        except:
+        """确认用来重置密码的token是否正确
+
+        :param token: token(bytes)
+        :param password: 密码(str)
+        :return: True or False
+        """
+        data = User.token_analysis(token)
+        if not data:
             return False
         user = db.session.query(User).filter_by(id=data.get('confirm.txt')).first()
         user.password = password
@@ -223,20 +330,26 @@ class User(db.Model, UserMixin):
         return True
 
     def email_reset_token_confirm(self, token):
-        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
-        try:
-            data = signature.loads(token)
-        except:
+        """确认用来重置用户邮箱的token是否正确
+
+        :param token: token(bytes)
+        :return: True or False
+        """
+        data = User.token_analysis(token)
+        if not data:
             return False
         if data.get('confirm.txt') != self.id:
             return False
         return True
 
     def new_email_token_confirm(self, token):
-        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
-        try:
-            data = signature.loads(token)
-        except:
+        """确认用来设置新邮箱的token是否有效
+
+        :param token: token(bytes)
+        :return: True or False
+        """
+        data = User.token_analysis(token)
+        if not data:
             return False
         if data.get('confirm.txt') != self.id:
             return False
@@ -246,10 +359,13 @@ class User(db.Model, UserMixin):
         return True
 
     def confirm(self, token):
-        signature = TimedJSONWebSignatureSerializer(current_app.config['SECRET_KEY'])
-        try:
-            data = signature.loads(token)
-        except:
+        """确认用来确认用户注册成功的token是否有效
+
+        :param token: token(bytes)
+        :return: True or False
+        """
+        data = User.token_analysis(token)
+        if not data:
             return False
         if data.get('confirm.txt') != self.id:
             return False
@@ -259,6 +375,7 @@ class User(db.Model, UserMixin):
 
     @staticmethod
     def generate_fake(count=100):
+        """生成测试用的假数据"""
         from sqlalchemy.exc import IntegrityError
         from random import seed
         import forgery_py
@@ -300,6 +417,7 @@ class Role(db.Model):
 
     @staticmethod
     def insert_role():
+        """用来创建新的用户角色"""
         roles = {
             'User': Permission.COMMENT,
             'Administer': Permission.COMMENT | Permission.ADMINISTER | Permission.DELETE | Permission.RECOMMEND,
@@ -313,9 +431,15 @@ class Role(db.Model):
             db.session.add(role)
             db.session.commit()
 
+    def __repr__(self):
+        return '<Role> {}'.format(self.name)
+
 
 class Ip(db.Model):
     __tablename__ = 'ip'
     id = db.Column(db.Integer, primary_key=True)
     ip = db.Column(db.String(20))
+
+    def __repr__(self):
+        return '<IP> {}'.format(self.ip)
 

@@ -15,7 +15,7 @@
                         <div class="body">
                             <h1>{{ blog.title }}</h1>
                             <div class="meta">
-                                <i class="fa fa-user"></i> Yiwen <i class="fa fa-calendar"></i>{{ blog.gmt_create }}<i class="fa fa-comments"></i><span class="data"><a href="#comments">3 Comments</a></span>
+                                <i class="fa fa-user"></i> Yiwen <i class="fa fa-calendar"></i>{{ blog.format_date }}<i class="fa fa-comments"></i><span class="data"><a href="#comments">3 Comments</a></span>
                             </div>
                             <div class="post-body">
                                 {% if blog.body_html %}
@@ -78,7 +78,7 @@
                                 <div class="meta">
                                     <h3><a href="{{ url_for('main.user_profile', user_id=comment.user_id) }}">{{ comment.user_name }}</a></h3>
                                     <span class="date">
-                                        {{ comment.gmt_create }}
+                                        {{ comment.format_date }}
                                     </span>
                                     <span class="separator">
                                         -

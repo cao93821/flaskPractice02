@@ -1,5 +1,6 @@
 from datetime import date
 from functools import wraps
+import logging
 
 from .. import db, photos
 from flask import render_template, redirect, flash, url_for, send_from_directory, Blueprint, request, abort, make_response
@@ -12,12 +13,22 @@ from config import Config
 main = Blueprint('main', __name__)
 
 
+# 初始化一个logger
+logger = logging.Logger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(logging.Formatter('name: %(name)s\nlevel: %(levelname)s\n%(message)s\n'))
+logger.addHandler(handler)
+
+
 def permission_required(permission):
+    """权限需求装饰器，如果权限不够，返回一个405错误码"""
     def permission_required_closure(func):
         @wraps(func)
         def wrappers(*args, **kwargs):
             if not current_user.can(permission):
-                abort(444)
+                abort(405)
             else:
                 return func(*args, **kwargs)
         return wrappers
@@ -26,23 +37,28 @@ def permission_required(permission):
 
 @main.after_request
 def pv_statistics(response):
+    """访问计数，不过dispatch_request层级是否发生异常，都会在full_dispatch_request层级进行调用"""
     ip = Ip(ip=request.remote_addr)
     db.session.add(ip)
     db.session.commit()
+
     return response
 
 
 @main.route('/show_followed')
 @login_required
 def show_followed():
+    """仅显示关注的人的blog，使用cookie种植实现"""
     response = make_response(redirect(url_for('.index')))
     response.set_cookie('show_followed', '1', max_age=30*24*60*60)
+
     return response
 
 
 @main.route('/index')
 @main.route('/')
 def index():
+    """主页"""
     is_show_followed = False
     if current_user.is_authenticated:
         is_show_followed = bool(request.cookies.get('show_followed', ''))
@@ -51,34 +67,26 @@ def index():
         blog_query = current_user.followed_blogs
     else:
         blog_query = Blog.query
+    # 通过查询参数获取请求的page页数
     page = request.args.get('page', 1, type=int)
+    # 获取分页对象pagination
     pagination = blog_query.order_by(Blog.gmt_create.desc()).paginate(
         page,
         per_page=20,
         error_out=False
     )
     blogs = pagination.items
+    recommended_blogs = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
 
-    recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
-    recommended_blogs = [dict(
-        id=result.id,
-        title=result.title
-    ) for result in recommended_blogs_result]
     return render_template('index.html', blogs=blogs, recommended_blogs=recommended_blogs, pagination=pagination)
 
 
 @main.route('/single/<blog_id>')
 def single(blog_id):
+    """blog详情页"""
     comment_form = CommentForm()
-    result = db.session.query(Blog).filter_by(id=blog_id).first()
-    blog = dict(
-        id=result.id,
-        title=result.title,
-        body=result.body,
-        img=result.img,
-        gmt_create=result.format_date,
-        body_html=result.body_html
-    )
+    blog = db.session.query(Blog).filter_by(id=blog_id).first()
+
     page = request.args.get('page', 1, type=int)
     pagination = db.session.query(Comment).filter(
         Comment.comment_blog_id == blog_id,
@@ -89,19 +97,8 @@ def single(blog_id):
         error_out=False
     )
 
-    comments = [dict(
-        id=result.id,
-        user_name=db.session.query(User).filter_by(id=result.user_id).first().user_name,
-        user_id=result.user_id,
-        gmt_create=result.format_date,
-        comment_content=result.comment_content
-    ) for result in pagination.items]
-
-    recommended_blogs_result = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
-    recommended_blogs = [dict(
-        id=result.id,
-        title=result.title
-    ) for result in recommended_blogs_result]
+    comments = pagination.items
+    recommended_blogs = db.session.query(Blog).filter(Blog.is_recommend == 1).order_by(Blog.id.desc())
 
     return render_template(
         'single.html',
@@ -117,6 +114,7 @@ def single(blog_id):
 @login_required
 @permission_required(Permission.COMMENT)
 def comment(blog_id):
+    """发评论"""
     comment_form = CommentForm()
     if comment_form.validate_on_submit():
         comment = Comment(user_id=current_user.id,
@@ -125,6 +123,7 @@ def comment(blog_id):
                           comment_blog_id=blog_id)
         db.session.add(comment)
         db.session.commit()
+
     return redirect(url_for('main.single', blog_id=blog_id))
 
 
@@ -132,17 +131,12 @@ def comment(blog_id):
 @login_required
 @permission_required(Permission.ADMINISTER)
 def administration():
+    """管理"""
     if current_user.is_authenticated:
-        results = Blog.query.order_by(Blog.id.desc())
-        blogs = [dict(
-            id=result.id,
-            title=result.title,
-            body=result.body,
-            img=result.img,
-            is_recommend=result.is_recommend
-        ) for result in results]
+        blogs = Blog.query.order_by(Blog.id.desc())
         pv = db.session.query(Ip.ip).count()
         return render_template('administration.html', blogs=blogs, pv=pv)
+
     return redirect(url_for('auth.login'))
 
 
@@ -150,9 +144,11 @@ def administration():
 @login_required
 @permission_required(Permission.DELETE)
 def delete(blog_id):
+    """删除blog"""
     blog = Blog.query.filter(Blog.id == blog_id).first()
     db.session.delete(blog)
     db.session.commit()
+
     return redirect(url_for('main.administration'))
 
 
@@ -160,8 +156,10 @@ def delete(blog_id):
 @login_required
 @permission_required(Permission.RECOMMEND)
 def recommend(blog_id):
+    """推荐blog"""
     Blog.query.filter(Blog.id == blog_id).update({Blog.is_recommend: 1})
     db.session.commit()
+
     return redirect(url_for('main.administration'))
 
 
@@ -169,6 +167,7 @@ def recommend(blog_id):
 @login_required
 @permission_required(Permission.RECOMMEND)
 def derecommend(blog_id):
+    """取消推荐blog"""
     Blog.query.filter(Blog.id == blog_id).update({Blog.is_recommend: 0})
     db.session.commit()
     return redirect(url_for('main.administration'))
@@ -178,8 +177,10 @@ def derecommend(blog_id):
 @login_required
 @permission_required(Permission.ADMINISTER)
 def release():
+    """发布blog"""
     form = ReleaseForm()
     if form.validate_on_submit():
+        logger.debug('file data: type {}, {}'.format(type(form.photo.data), form.photo.data))
         filename = photos.save(form.photo.data)
         file_url = photos.url(filename)
         blog = Blog(title=form.title.data, body=form.body.data, img=file_url, gmt_create=date.today().isoformat())
@@ -192,22 +193,25 @@ def release():
 
 @main.route('/about')
 def about():
+    """about页面"""
     return render_template('about.html')
 
 
 @main.route('/user_profile/<user_id>')
 def user_profile(user_id):
+    """用户个人信息页面"""
     user = db.session.query(User).filter_by(id=user_id).first()
     if not user:
-        abort(444)
+        abort(405)
     return render_template('user_profile.html', user=user)
 
 
 @main.route('/user_profile/<user_id>/edit', methods=['GET', 'POST'])
 @login_required
 def user_profile_edit(user_id):
+    """用户个人信息编辑"""
     if current_user.id != int(user_id):  # 这里注意一下，传进来的东西全部是字符串，如果未加申明的话，所以要用int进行类型转换
-        abort(444)
+        abort(405)
     form = EditUserProfileForm()
     if form.validate_on_submit():
         current_user.real_name = form.real_name.data
@@ -227,6 +231,7 @@ def user_profile_edit(user_id):
 @login_required
 @permission_required(Permission.SUPERADMIN)
 def user_profile_edit_admin(user_id):
+    """超级用户编辑用户个人信息"""
     user = db.session.query(User).filter_by(id=user_id).first()
     if user:
         form = EditUserProfileAdminForm(user)
@@ -256,6 +261,7 @@ def user_profile_edit_admin(user_id):
 @main.route('/follow/<int:user_id>')
 @login_required
 def follow(user_id):
+    """关注"""
     follow_user = User.query.filter_by(id=user_id).first()
     if follow_user:
         current_user.follow(follow_user)
@@ -265,6 +271,7 @@ def follow(user_id):
 @main.route('/unfollow/<int:user_id>')
 @login_required
 def unfollow(user_id):
+    """取消关注"""
     follow_user = User.query.filter_by(id=user_id).first()
     if follow_user:
         current_user.unfollow(follow_user)
@@ -273,4 +280,5 @@ def unfollow(user_id):
 
 @main.route('/_uploads/photos/<filename>')
 def uploaded_file(filename):
+    """获取上传的照片"""
     return send_from_directory(Config.UPLOADED_PHOTOS_DEST, filename)

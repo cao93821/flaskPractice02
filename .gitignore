@@ -8,3 +8,4 @@ migrations/
 app/static/img/
 *.pyc
 *.conf
+tmp
